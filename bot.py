@@ -23,7 +23,16 @@ def main():
     parser.add_argument("--verbose", action="store_true", help="Show all poll activity")
     args = parser.parse_args()
 
-    target = args.target or config.TARGET_WALLET
+    # Build target list
+    if args.target:
+        targets = [{"address": args.target.lower(), "name": args.target[:10] + "..."}]
+    else:
+        targets = config.TARGET_WALLETS
+
+    if not targets:
+        print("  ⛔ No target wallets configured!")
+        return
+
     interval = args.interval or config.POLL_INTERVAL
     dry_run = not args.live
 
@@ -31,7 +40,9 @@ def main():
     mode = "LIVE" if args.live else "DRY RUN"
     print("=" * 64)
     print(f"  🔄 Polymarket CopyTrading Bot — {mode}")
-    print(f"  Target : {target}")
+    print(f"  Targets: {len(targets)} wallets")
+    for t in targets:
+        print(f"    • {t['name']} ({t['address'][:10]}...)")
     print(f"  Ratio  : {args.ratio or config.COPY_RATIO:.0%}")
     print(f"  Max bet: ${args.max_bet or config.MAX_BET_USD:.2f}")
     print(f"  Poll   : every {interval}s")
@@ -48,7 +59,10 @@ def main():
 
     # Init
     client = PolymarketClient()
-    watcher = WalletWatcher(client, target)
+    watchers = []
+    for t in targets:
+        watchers.append(WalletWatcher(client, t["address"], t["name"]))
+
     copier = Copier(
         client,
         dry_run=dry_run,
@@ -71,16 +85,19 @@ def main():
     signal.signal(signal.SIGTERM, handle_signal)
 
     # Startup notification
+    names = ", ".join(t["name"] for t in targets)
     send_telegram(
         f"🔄 <b>CopyBot Started</b>\n"
         f"Mode: {mode}\n"
-        f"Target: <code>{target[:10]}...{target[-6:]}</code>\n"
+        f"Targets: {names}\n"
         f"Balance: ${bal:.2f}"
     )
 
-    # First poll — seeds seen_ids
-    print(f"\n  Seeding trade history...")
-    watcher.poll()
+    # First poll — seeds seen_ids for all watchers
+    print(f"\n  Seeding trade history for {len(watchers)} wallets...")
+    for w in watchers:
+        w.poll()
+        print(f"    ✓ {w.name}")
     print(f"  ✓ Watching for new trades\n")
 
     # Main loop
@@ -89,25 +106,26 @@ def main():
 
     while running:
         try:
-            trades = watcher.poll()
+            for w in watchers:
+                trades = w.poll()
 
-            if trades:
-                for t in trades:
-                    print(f"\n  🆕 NEW TRADE DETECTED:")
-                    print(f"     Market  : {t.title}")
-                    print(f"     Outcome : {t.outcome}")
-                    print(f"     Side    : {t.side}")
-                    print(f"     Price   : {t.price:.2f} x {t.size:.1f}sh = ${t.cost_usd:.2f}")
+                if trades:
+                    for t in trades:
+                        print(f"\n  🆕 NEW TRADE from [{w.name}]:")
+                        print(f"     Market  : {t.title}")
+                        print(f"     Outcome : {t.outcome}")
+                        print(f"     Side    : {t.side}")
+                        print(f"     Price   : {t.price:.2f} x {t.size:.1f}sh = ${t.cost_usd:.2f}")
 
-                    result = copier.process(t)
+                        result = copier.process(t)
 
-                    if result.action == "COPIED" or result.action == "DRY_COPY":
-                        total_copied += 1
-                    else:
-                        total_skipped += 1
+                        if result.action in ("COPIED", "DRY_COPY"):
+                            total_copied += 1
+                        else:
+                            total_skipped += 1
 
-            elif args.verbose:
-                print(f"  [{time.strftime('%H:%M:%S')}] No new trades")
+            if args.verbose:
+                print(f"  [{time.strftime('%H:%M:%S')}] Polled {len(watchers)} wallets — no new trades")
 
             time.sleep(interval)
 

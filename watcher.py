@@ -20,14 +20,16 @@ class DetectedTrade:
     outcome: str
     event_slug: str
     timestamp: int
+    source_name: str = ""
 
 
 class WalletWatcher:
     """Polls target wallet activity and yields new BUY trades."""
 
-    def __init__(self, client: PolymarketClient, target: str = ""):
+    def __init__(self, client: PolymarketClient, target: str = "", name: str = ""):
         self.client = client
         self.target = target or config.TARGET_WALLET
+        self.name = name or target[:10] + "..."
         self.seen_ids: set[str] = set()
         self._first_poll = True
 
@@ -95,6 +97,7 @@ class WalletWatcher:
                 outcome=outcome,
                 event_slug=event_slug,
                 timestamp=timestamp,
+                source_name=self.name,
             )
         except (ValueError, TypeError):
             return None

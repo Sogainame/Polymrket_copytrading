@@ -7,11 +7,31 @@ load_dotenv()
 POLY_PRIVATE_KEY = os.getenv("POLY_PRIVATE_KEY", "")
 POLY_FUNDER_ADDRESS = os.getenv("POLY_FUNDER_ADDRESS", "")
 
-# Target wallet to copy
-TARGET_WALLET = os.getenv(
-    "TARGET_WALLET",
-    "0x909fa9f89976058b8b3ab87adc502ec7415ea8c3",  # BAdiosB
-)
+# Target wallets to copy (comma-separated in .env, or use defaults)
+_default_targets = ",".join([
+    "0x909fa9f89976058b8b3ab87adc502ec7415ea8c3",  # BAdiosB — ROI 11.3%, WR 90.8%
+    "0x45bc74efa620b45c02308acaecdff1f7c06f978b",  # simonbanza — WR 59%, $1.9M/2wks, sports
+    "0x63ce342161250d705dc0b16df89036c8e5f9ba9a",  # LucasMeow — WR 94.9%, systematic
+])
+TARGET_WALLETS_STR = os.getenv("TARGET_WALLETS", _default_targets)
+TARGET_WALLETS: list[dict] = []
+
+_names = {
+    "0x909fa9f89976058b8b3ab87adc502ec7415ea8c3": "BAdiosB",
+    "0x45bc74efa620b45c02308acaecdff1f7c06f978b": "simonbanza",
+    "0x63ce342161250d705dc0b16df89036c8e5f9ba9a": "LucasMeow",
+}
+
+for addr in TARGET_WALLETS_STR.split(","):
+    addr = addr.strip().lower()
+    if addr:
+        TARGET_WALLETS.append({
+            "address": addr,
+            "name": _names.get(addr, addr[:10] + "..."),
+        })
+
+# Legacy single target (first in list)
+TARGET_WALLET = TARGET_WALLETS[0]["address"] if TARGET_WALLETS else ""
 
 # Copy settings
 COPY_RATIO = float(os.getenv("COPY_RATIO", "0.1"))
