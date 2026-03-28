@@ -10,7 +10,6 @@ POLY_FUNDER_ADDRESS = os.getenv("POLY_FUNDER_ADDRESS", "")
 # Target wallets to copy (comma-separated in .env, or use defaults)
 _default_targets = ",".join([
     "0x909fa9f89976058b8b3ab87adc502ec7415ea8c3",  # BAdiosB — ROI 11.3%, WR 90.8%
-    "0x45bc74efa620b45c02308acaecdff1f7c06f978b",  # simonbanza — WR 59%, $1.9M/2wks, sports
     "0x63ce342161250d705dc0b16df89036c8e5f9ba9a",  # LucasMeow — WR 94.9%, systematic
 ])
 TARGET_WALLETS_STR = os.getenv("TARGET_WALLETS", _default_targets)
@@ -18,7 +17,6 @@ TARGET_WALLETS: list[dict] = []
 
 _names = {
     "0x909fa9f89976058b8b3ab87adc502ec7415ea8c3": "BAdiosB",
-    "0x45bc74efa620b45c02308acaecdff1f7c06f978b": "simonbanza",
     "0x63ce342161250d705dc0b16df89036c8e5f9ba9a": "LucasMeow",
 }
 

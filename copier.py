@@ -41,13 +41,19 @@ class Copier:
     def process(self, trade: DetectedTrade) -> CopyResult:
         """Evaluate a detected trade and optionally copy it."""
 
-        # Filter 1: Price range
+        # Filter 1: Skip 5-minute Up/Down markets (bots only, not copyable)
+        _skip_keywords = ["Up or Down", "updown", "5m", "15m", "5-minute", "15-minute"]
+        title_lower = trade.title.lower()
+        if any(kw.lower() in title_lower for kw in _skip_keywords):
+            return self._skip(trade, "5-min bot market — not copyable")
+
+        # Filter 2: Price range
         if trade.price > config.MAX_PRICE:
             return self._skip(trade, f"price {trade.price:.2f} > max {config.MAX_PRICE}")
         if trade.price < config.MIN_PRICE:
             return self._skip(trade, f"price {trade.price:.2f} < min {config.MIN_PRICE}")
 
-        # Filter 2: Calculate our bet size
+        # Filter 3: Calculate our bet size
         target_cost = trade.cost_usd
         our_cost = round(target_cost * self.copy_ratio, 2)
         if our_cost > self.max_bet:
@@ -55,12 +61,12 @@ class Copier:
         if our_cost < config.MIN_BET_USD:
             return self._skip(trade, f"cost ${our_cost:.2f} < min ${config.MIN_BET_USD}")
 
-        # Filter 3: Cooldown
+        # Filter 4: Cooldown
         now = time.time()
         if now - self.last_order_time < config.COOLDOWN_SEC:
             return self._skip(trade, f"cooldown ({config.COOLDOWN_SEC}s)")
 
-        # Filter 4: Check current price on orderbook
+        # Filter 5: Check current price on orderbook
         current_price = self.client.get_token_price(trade.token_id)
         if current_price is None:
             return self._skip(trade, "can't fetch current price")
